@@ -10,25 +10,30 @@
 -author("maryam").
 
 %% API
--export([view_ad/3, get_val/3]).
+-export([view_ad/2, get_val/2]).
 
 -include_lib("eunit/include/eunit.hrl").
 
-view_ad(Node, Ad, Clock) ->
-  {ok, TxId} = rpc:call(Node, antidote, start_transaction, [Clock, []]),
-  {ok, [Res1]} = rpc:call(Node, antidote, read_objects, [[Ad], TxId]),
+-define(DB_NODE, antidote_node).
+-define(APP, ad_counter).
+
+view_ad(Ad, Clock) ->
+  {ok, AntNode} = application:get_env(?APP, ?DB_NODE),
+  {ok, TxId} = rpc:call(AntNode, antidote, start_transaction, [Clock, []]),
+  {ok, [Res1]} = rpc:call(AntNode, antidote, read_objects, [[Ad], TxId]),
   if
     Res1<5 ->
-      ok = rpc:call(Node, antidote, update_objects, [[{Ad, increment, 1}], TxId]);
+      ok = rpc:call(AntNode, antidote, update_objects, [[{Ad, increment, 1}], TxId]);
     true ->
-      ok = rpc:call(Node, antidote, update_objects, [[{Ad, increment, 1}, {Ad, decrement, 1}], TxId])
+      ok = rpc:call(AntNode, antidote, update_objects, [[{Ad, increment, 1}, {Ad, decrement, 1}], TxId])
   end,
-  {ok, [Res]} = rpc:call(Node, antidote, read_objects, [[Ad], TxId]),
-  {ok, CT} = rpc:call(Node, antidote, commit_transaction, [TxId]),
+  {ok, [Res]} = rpc:call(AntNode, antidote, read_objects, [[Ad], TxId]),
+  {ok, CT} = rpc:call(AntNode, antidote, commit_transaction, [TxId]),
   {Res, {TxId, CT}}.
 
-get_val(Node, Ad, Clock) ->
-  {ok, Tx} = rpc:call(Node, antidote, start_transaction, [Clock, []]),
-  {ok, [Res]} = rpc:call(Node, antidote, read_objects, [[Ad], Tx]),
-  {ok, _CT1} = rpc:call(Node, antidote, commit_transaction, [Tx]),
+get_val(Ad, Clock) ->
+  {ok, AntNode} = application:get_env(?APP, ?DB_NODE),
+  {ok, Tx} = rpc:call(AntNode, antidote, start_transaction, [Clock, []]),
+  {ok, [Res]} = rpc:call(AntNode, antidote, read_objects, [[Ad], Tx]),
+  {ok, _CT1} = rpc:call(AntNode, antidote, commit_transaction, [Tx]),
   Res.
